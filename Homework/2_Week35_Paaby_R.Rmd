@@ -1,0 +1,144 @@
+---
+title: "ASSSIGNMENT2"
+author: "LAURA PAAABY"
+date: '2022-08-30'
+output: html_document
+---
+Loading in libraries:
+```{r}
+library(tidyverse)
+```
+
+
+*1) Use R to figure out how many elements in the vector below are greater than 2 and then tell me what their sum (of the larger than 2 elements) is.*
+
+```{r}
+rooms <- c(1, 2, 4, 5, 1, 3, 1, NA, 3, 1, 3, 2, 1, NA, 1, 8, 3, 1, 4, NA, 1, 3, 1, 2, 1, 7, 1, 9, 3, NA)
+```
+
+The amount of elements that greater than 2:
+```{r}
+length(which(rooms>2))
+```
+
+The sum of all elements greater than 2:
+```{r}
+sum(which(rooms>2))
+```
+
+
+*2) What type of data is in the 'rooms' vector?*
+Lets investigate by looking at the class:
+```{r}
+class(rooms)
+```
+They appear to be numeric 
+
+
+
+3) Submit the following image to Github: Inside your R Project (.Rproj), install the 'tidyverse' package and use the download.file() and read_csv() function to read the SAFI_clean.csv dataset into your R project as 'interviews' digital object (see instructions in https://datacarpentry.org/r-socialsci/setup.html and 'Starting with Data' section). Take a screenshot of your RStudio interface showing
+
+a) the line of code you used to create the object,
+b) the 'interviews' object in the Environment, and
+c) the file structure of your R project in the bottom right "Files" pane.
+
+Save the screenshot as an image and put it in your AUID_lastname_firstname repository inside our Github organisation (github.com/Digital-Methods-HASS) or equivalent. Place here the URL leading to the screenshot in your repository.
+
+
+
+*4) Challenge: If you managed to create your own Danish king dataset, use it. If not, you the one attached to this assignment (it might need to be cleaned up a bit). Load the dataset into R as a tibble. Calculate the mean() and median() duration of rule over time and find the three mondarchs ruling the longest. How many days did they rule (accounting for transition year?)*
+
+```{r}
+#loading in the data:
+king_data <- read_csv("/Users/laura/Desktop/GITHUB YES /LauraWP/Homework/DanishMonarchs.csv")
+king_data <- as_tibble(king_data)
+```
+
+Lets first find the duration:
+```{r}
+king_data <- king_data %>% 
+ mutate(duration = year_of_end_reign - year_of_start_reign) %>% 
+  filter(duration != "NA")
+
+### making sure its numeric 
+class(king_data$duration)
+
+## finding the mean and median:
+mean_dur <- mean(king_data$duration)
+median_dur <- median(king_data$duration)
+
+mean_dur
+median_dur
+```
+
+So the mean duration of each monarchs ruling time is *19.33* and the median is *16.5*.
+
+
+Lets then find the monarchs ruling the longest:
+```{r}
+pacman::p_load(Rfast)
+library('Rfast')
+
+# The King sitting for the longest 
+max(king_data$duration)
+king_one <- king_data$Monarch[(which.max(king_data$duration))] 
+
+
+#The King sitting for the second longest 
+nth(king_data$duration, 2, descending = T) #gives length  of duration
+nth(king_data$duration, 3, descending = T) #gives length of duration
+#### apparently both the second and third most ruling were sitting for 43 years
+
+# The index for those kings are:
+which(king_data$duration == (nth(king_data$duration, 2, descending = T)))
+
+#The King sitting for the second longest
+king_two <- king_data$Monarch[33] 
+king_three <- king_data$Monarch[51] 
+```
+
+```{r}
+## so the three kings are:
+king_one
+king_two
+king_three
+```
+
+Lets now figure out for how many days they been there:
+
+**Christian 4. - 60 years**
+```{r}
+# how many of these are transition years:
+C4_year <- 60
+numb_trans_year <- 60/4
+
+# total number of days
+((C4_year - numb_trans_year)*365) + (numb_trans_year*366)
+```
+So Chr 4. have ruled for *21915* days. 
+
+**Christian 9. - 43 years**
+```{r}
+# how many of these are transition years:
+C9_year <- 43
+numb_trans_year9 <- 43/4
+
+# total number of days
+((C9_year - numb_trans_year9)*365) + (numb_trans_year9*366)
+```
+So Chr 9. have ruled for *15705.75* days. 
+
+**Erik 7. af Pommern. - 43 years**
+Since Erik 7. af Pommern and Christian 9. have both ruled for 43 years, Erik must likewise have ruled *15705.75* days. 
+
+
+
+
+
+
+
+
+
+
+
+

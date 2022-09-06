@@ -1,0 +1,171 @@
+---
+title: "tidytime"
+author: "LAURA PAAABY"
+date: '2022-08-30'
+output: html_document
+---
+
+```{r, message=FALSE}
+
+library(tidyverse)
+```
+
+
+
+
+```{r}
+interview <- read.csv("/Users/laura/Desktop/GITHUB YES /LauraWP/Homework/SAFI_clean.csv")
+```
+
+ *TASK 1 - PIPE*
+Using pipes, subset the interviews data to include interviews where respondents were members of an irrigation association (memb_assoc) and retain only the columns affect_conflicts, liv_count, and no_meals.
+
+```{r}
+interview_pipes <- interview %>% 
+  filter(memb_assoc == "yes") %>% 
+  select(affect_conflicts, liv_count, no_meals)
+
+head(interview_pipes)
+```
+
+
+ *TASK 2 - MUTATE*
+Create a new dataframe from the interviews data that meets the following criteria: 
+- contains only the village column and a new column called total_meals containing a value that is equal to the total number of meals served in the household per day on average (no_membrs times no_meals). 
+
+Only the rows where total_meals is greater than 20 should be shown in the final dataframe.
+
+```{r}
+interview$no_membrs <- as.numeric(interview$no_membrs)
+interview$no_meals <- as.numeric(interview$no_meals)
+
+#### lets go 
+interview_mutate <- interview %>% 
+  mutate(total_meals = no_membrs*no_meals) %>% 
+  mutate(total_meals > 20) %>% 
+  select(village, total_meals)
+
+head(interview_mutate)
+```
+
+
+*TASK 3: SPLIT-APPLY-COMBINE .... BY SUMMARIZE*
+Example of group by and summarize
+```{r}
+interview %>%
+    group_by(village, memb_assoc) %>%
+    summarize(mean_no_membrs = mean(no_membrs))
+
+
+#### making sure there is no NA's
+interview %>%
+    filter(!is.na(memb_assoc)) %>%
+    group_by(village, memb_assoc) %>%
+    summarize(mean_no_membrs = mean(no_membrs))
+```
+
+**EXERCISE 3.1**
+How many households in the survey have an average of two meals per day? Three meals per day? Are there any other numbers of meals represented?
+
+```{r}
+### two
+interview %>% 
+  count(no_meals == 2, sort = TRUE)
+
+
+### three
+interview %>% 
+  count(no_meals == 3, sort = TRUE)
+
+### more
+interview %>% 
+  count(no_meals > 3, sort = TRUE)
+
+```
+
+
+
+
+**EXERCISE 3.2**
+Use group_by() and summarize() to find the mean, min, and max number of household members for each village. Also add the number of observations (hint: see ?n).
+
+```{r}
+interview %>% 
+  group_by(village) %>% 
+  summarize(mean_hh = mean(no_membrs),
+            min_hh = min(no_membrs),
+            max_hh = max(no_membrs), 
+            n())
+  
+
+?n
+
+```
+**EXERCISE 3.3**
+What was the largest household interviewed in each month?
+```{r}
+# if not already included, add month, year, and day columns
+library(lubridate) # load lubridate if not already loaded
+
+interview %>% 
+  mutate(month = month(interview_date), 
+            day = day(interview_date),
+           year = year(interview_date)) %>% 
+    group_by(month, year)%>%
+    summarize(max_mh = max(no_membrs))
+```
+
+
+
+
+# PLOT TIME YES
+```{r}
+library(ggplot2)
+interview %>% 
+  ggplot(aes(x = village, y = rooms, colour = respondent_wall_type)) + 
+  geom_count() +
+  labs(x = "Village yessirs", y = "Number of Rooms", title = "EXERCISE 1")
+
+interview %>% 
+  ggplot(aes(x = village, y = rooms, colour = respondent_wall_type)) + 
+  geom_point() +
+  labs(x = "Village yessirs", y = "Number of Rooms", title = "EXERCISE 1")
+  
+interview %>% 
+  ggplot(aes(x = village, y = rooms, colour = respondent_wall_type)) + 
+  geom_jitter() +
+  labs(x = "Village yessirs", y = "Number of Rooms", title = "EXERCISE 1")
+  
+```
+
+
+
+
+
+
+
+
+## SAve GOOD DaTA 
+
+```{r}
+## Not run, but can be used to load in data from previous lesson!
+interviews_plotting <- interview %>%
+  ## pivot wider by items_owned
+  separate_rows(items_owned, sep = ";") %>%
+  ## if there were no items listed, changing NA to no_listed_items
+  replace_na(list(items_owned = "no_listed_items")) %>%
+  mutate(items_owned_logical = TRUE) %>%
+  pivot_wider(names_from = items_owned, 
+              values_from = items_owned_logical, 
+              values_fill = list(items_owned_logical = FALSE)) %>%
+  ## pivot wider by months_lack_food
+  separate_rows(months_lack_food, sep = ";") %>%
+  mutate(months_lack_food_logical = TRUE) %>%
+  pivot_wider(names_from = months_lack_food, 
+              values_from = months_lack_food_logical, 
+              values_fill = list(months_lack_food_logical = FALSE)) %>%
+  ## add some summary columns
+  mutate(number_months_lack_food = rowSums(select(., Jan:May))) %>%
+  mutate(number_items = rowSums(select(., bicycle:car)))
+```
+
