@@ -1,0 +1,426 @@
+---
+title: "TASK 4 - Data Visualisation"
+author: "LAURA PAAABY"
+date: '2022-09-27'
+output: html_document
+---
+
+# 4:W35: Visualize data (not only) with ggplot 
+ 
+### Global development since 1957 
+learning how to create animations with gganimate package! :)
+
+
+**The data** == a subset of data on global development from 1952 - 2007 in increments of 5 years - to capture the period between the Second World War and the Global Financial Crisis. 
+
+**The task** == Explore the data and visualise it in both static and animated ways, providing answers and solutions to 7 questions/tasks below.**
+
+### Get the necessary packages
+First, start with installing the relevant packages 'tidyverse', 'gganimate', and 'gapminder'.
+
+```{r libraries, echo = FALSE}
+#install.packages("gganimate")
+#install.packages("gifski")
+#install.packages("av")
+#install.packages("gapminder")
+
+
+library(gganimate)
+library(gifski)
+library(gapminder)
+library(tidyverse)
+#library(av)
+```
+
+## Look at the data and tackle the tasks
+First, see which specific years are actually represented in the dataset and what variables are being recorded for each country. Note that when you run the cell below, Rmarkdown will give you two results - one for each line - that you can flip between.
+```{r}
+str(gapminder)
+unique(gapminder$year)
+head(gapminder)
+
+gapminder$lifeExp
+```
+
+The dataset contains information on each country in the sampled year, its continent, life expectancy, population, and GDP per capita. *(pr indbygger)*
+
+Let's plot all the countries in 1952.
+```{r 1957}
+theme_set(theme_bw())  # set theme to white background for better visibility
+ggplot(subset(gapminder, year == 1952), aes(gdpPercap, lifeExp, size = pop)) +
+  geom_point() +
+  scale_x_log10() 
+```
+The plot here visualises how the *GDP per capita* seems to model the *life expectancy* of the citisents - the greater the GDP the longer the life expectancy. However we clearly see an outlier to the right, not following the regular spread of the data...    
+
+lets find out:
+
+1. *Why does it make sense to have a log10 scale on x axis?*
+
+A logarithmic scale shows exponential growth on a graph. It's a nonlinear scale that's frequently used for analyzing a large range of quantities compactly. When applied here, it is useful to visualise the economic growth of the countries as economic growth are exponential, due to its inflationary nature. This is usually done when the x axis concerns some kind of time measure, which is not the case atm, but when we animate the plot and time is a parameter of interest, the log scale becomes useful to visualise the growth as somewhat linear with time - despite its exponential nature. 
+
+something with the outlier 
+
+2. *Who is the outlier (the richest country in 1952 - far right on x axis)?* 
+This is first figured out visually:
+```{r}
+theme_set(theme_bw())  # set theme to white background for better visibility
+ggplot(subset(gapminder, year == 1952), aes(gdpPercap, lifeExp, size = pop, label = country)) +
+  geom_point() +
+  geom_text(hjust=0, vjust=0) +
+  scale_x_log10() 
+```
+After having added the name of the country to each point, the outlier seems to be **Kuwait**. Another way this could be detected was by looking at the raw data, and find the country with the highest GDP in 1952:
+```{r}
+dat1952 <- gapminder %>% 
+  filter(year == "1952") %>% 
+  mutate(country = as.character(country))
+
+target_outlier <- dat1952$country[(which.max(dat1952$gdpPercap))]
+target_outlier
+```
+
+
+
+
+Next, you can generate a similar plot for 2007 and compare the differences
+*Even though it is a bit messy I like to have the names on the dots, so they stay :)*
+```{r 2007}
+ggplot(subset(gapminder, year == 2007), aes(gdpPercap, lifeExp, size = pop, label = country)) +
+  geom_point() +
+  geom_text(hjust=0, vjust=0) +
+  scale_x_log10() 
+
+```
+
+...
+
+The black bubbles are a bit hard to read, the comparison would be easier with a bit more visual differentiation.
+
+Tasks:
+
+3. *Differentiate the **continents** by color, and fix the axis labels and units to be more legible
+```{r}
+options(scipen=10000) ### to make it non-scientific notation and thus more legible
+
+ggplot(subset(gapminder, year == 2007), aes(gdpPercap, lifeExp, size = pop, label = country, colour = continent)) +
+  geom_point() +
+  geom_text(hjust=0, vjust=0)+
+  scale_x_log10()+
+  labs(subtitle = "The Life Expentancy of the World Citizens when Modelled by GDP per Capita ", x = "GDP per capita on the log10 scale", y = "Life expectancy of the citisens")
+
+```
+
+
+4. *What are the five richest countries in the world in 2007?*
+lets find out by the similar method as before:
+```{r}
+#### first lets find the three highest values 
+datGDP <- gapminder %>% 
+  filter(year == "2007") %>% 
+  select(gdpPercap)
+
+top_three <- datGDP%>%                                      
+  top_n(3)
+
+#### lets then find out which country holds these values:
+#### first I filter the data so we are working with all variables, but only from 2007
+dat2007 <- gapminder %>% 
+  filter(year == "2007") %>% 
+   mutate(country = as.character(country)) 
+
+#### then lets find the three richest:
+richest <- dat2007$country[which(grepl(top_three[1,1], dat2007$gdpPercap))]
+second_richest <- dat2007$country[which(grepl(top_three[2,1], dat2007$gdpPercap))]
+third_richest <- dat2007$country[which(grepl(top_three[3,1], dat2007$gdpPercap))]
+
+### so the three richest countries is:
+richest
+second_richest    
+third_richest
+```
+**Kuwait, Norway and Singapore** are thus the richest three countries as measured by GDP per capita in 2007, which by visual inspection appears to match the graph. 
+
+
+
+##  Make it move!
+
+The comparison would be easier if we had the two graphs together, animated. We have a lovely tool in R to do this: the `gganimate` package. Beware that there may be other packages your operating system needs in order to glue interim images into an animation or video. Read the messages when installing the package.
+
+Also, there are *two* ways of animating the gapminder ggplot.
+
+### Option 1: Animate using transition_states() 
+
+The first step is to create the object-to-be-animated
+```{r anim1 start}
+options(scipen=10000)
+
+anim <- ggplot(gapminder, aes(gdpPercap, lifeExp, size = pop)) +
+  geom_point() +
+  scale_x_log10()  # convert x to log scale
+anim
+```
+
+...
+
+This plot collates all the points across time. The next step is to split it into years and animate it. This may take some time, depending on the processing power of your computer (and other things you are asking it to do). Beware that the animation might appear in the bottom right 'Viewer' pane, not in this rmd preview. You need to `knit` the document to get the visual inside an html file.
+
+```{r anim1}
+anim + transition_states(year, 
+                      transition_length = 1,
+                      state_length = 1)
+```
+...
+
+Notice how the animation moves jerkily, 'jumping' from one year to the next 12 times in total. This is a bit clunky, which is why it's good we have another option. 
+
+
+### Option 2 Animate using transition_time()
+This option smoothes the transition between different 'frames', because it interpolates and adds transitional years where there are gaps in the timeseries data.
+
+```{r anim2}
+anim2 <- ggplot(gapminder, aes(gdpPercap, lifeExp, size = pop)) +
+  geom_point() +
+  scale_x_log10() + # convert x to log scale
+  transition_time(year)
+anim2
+```
+
+The much smoother movement in Option 2 will be much more noticeable if you add a title to the chart, that will page through the years corresponding to each frame.
+
+Now, choose one of the animation options and get it to work. You may need to troubleshoot your installation of `gganimate` and other packages 
+
+
+5. *Can you add a title to one or both of the animations above that will change* 
+ *in sync with the animation?* 
+
+i choose to do it in the latter animation_
+```{r}
+options(scipen=10000)
+
+anim_w_title <- ggplot(gapminder, aes(gdpPercap, lifeExp, size = pop, colour = continent)) +
+  geom_point() +
+  scale_x_log10() + # convert x to log scale
+  labs(title = "Year: {closest_state}", subtitle = "Life expentancy as modeled by GDP accross yeas", x = "GDP per capita on the log10 scale", y = "Life expectancy of the citisens") + # the {} adds the year transition as the title 
+  transition_states(year, transition_length = 3, state_length = 1) +
+  enter_fade() +
+  exit_fade()
+
+anim_w_title
+
+
+```
+In this plot the title changes with the transition of the points in the graph, and reveals in which year the data is from. Additionally the labels of the axes explains what the information x and y hold. 
+The colour of the points reveals which continent the country is from, while the size of the point the population size. Both the axes and the population size has been made into whole numbers to avoid scientific notions, and hereby make the plot more readable. 
+
+Another way this can be visualised is by facetwrapping it for continents: 
+
+```{r}
+anim_for_facet <- ggplot(gapminder, aes(gdpPercap, lifeExp, size = pop, colour = country)) +
+  geom_point(show.legend = FALSE) +
+  scale_x_log10() + # convert x to log scale
+  labs(title = "Year: {closest_state}", subtitle = "Life expentancy as modeled by GDP accross yeas", x = "GDP per capita on the log10 scale", y = "Life expectancy of the citisens") + # the {} adds the year transition as the title 
+  transition_states(year, transition_length = 3, state_length = 1) +
+  enter_fade() +
+  exit_fade()
+
+
+anim_for_facet + facet_wrap(~continent) +
+  transition_time(year) +
+  labs(title = "Year: {frame_time}")
+```
+
+
+6. *Can you made the axes' labels and units more readable? Consider expanding the abreviated lables as well as the scientific notation in the legend and x axis to whole numbers.*
+
+This has all been done above, by the use of the code snippet: **options(scipen=100000)**. However one should remember that the values on the x axes are still on the log10 scale. 
+
+
+7. *Come up with a question you want to answer using the gapminder data and write it down. Then, create a data visualisation that answers the question and explain how your visualization answers the question.*
+
+### My Questions:  
+**1) Which country had the shortest life expectancy in the earliest year (1952) versus the latest year (2007)?** 
+
+**2) Which 3 countries have on average had the lowest life expectancy across all years?**
+
+
+Lets start with the latter, and find the lowest life expectancy across all years:
+```{r}
+# making a df only holding the mean of life expentancy and country 
+mean_life_dat <- gapminder %>%
+  group_by(country) %>%
+  summarise_at(vars(lifeExp), list(Mean_life_exp = mean)) %>% 
+  mutate(country = as.character(country)) 
+
+
+minimum <- sort(mean_life_dat$Mean_life_exp,decreasing=F)[1:3]
+
+
+#### indexing using the three smallest values
+first_shortest <- mean_life_dat$country[which(grepl(minimum[1], mean_life_dat$Mean_life_exp))]
+second_shortest <- mean_life_dat$country[which(grepl(minimum[2], mean_life_dat$Mean_life_exp))]
+third_shortest <- mean_life_dat$country[which(grepl(minimum[3], mean_life_dat$Mean_life_exp))]
+
+
+#### THE THREE COUNTRIES THAT ACROSS ALL TIMES HAVE THE LOWEST LIFE EXPECTANCY
+first_shortest
+second_shortest
+third_shortest
+```
+
+I can thus conclude that across all time, **Sierra Leone, Afghanistan and Zimbabwe** have the shortest life expectancy, respectively.
+
+
+
+Now to the other question:
+*Which country had the shortest and longest life expectancy in the earliest year (1952) versus the latest year (2007)?*
+
+just to try, lets now make a function that can take in the year and find the shortest life expectancy and plot them up against one another:
+```{r}
+year_function <- function(year_arg) {
+  ### fixing the given data
+  dat <- gapminder %>% 
+    mutate(country = as.character(country)) %>% 
+    filter(year == year_arg)
+  
+  ### finding the country with shortest life expentancy 
+  short_country <- dat$country[(which.min(dat$lifeExp))]
+  long_country <- dat$country[(which.max(dat$lifeExp))]
+  
+  ### finding the actual value
+  min <- min(dat$lifeExp)
+  max <- max(dat$lifeExp)
+                   
+    # return the values  
+    nice_results <- tibble("Country" = c(short_country, long_country), "Life Expectancy in Years" = c(min, max))
+    print(nice_results)
+
+  # LETS now plot the values - to do so they must be combined in a df:
+      country_list <- c(short_country, long_country)
+      value_list <- c(min, max)
+      df = data.frame(country_list, value_list)
+  
+  #### plotting both values in one plot 
+plot <- ggplot(df, aes(country_list, value_list)) + 
+    geom_point( size = 3) +
+    labs(subtitle = "Visual Presentation of Countries with the Lowest and Highest Life Expectanxy", x = "Country", y = "Life Expentancy (Years)") +
+    ggtitle(paste0('Year:', year_arg)) + 
+    theme_bw()
+
+print(plot)
+}
+```
+
+using the function:
+```{r}
+year_function(1952)
+
+year_function(1972)
+
+year_function(2007)
+``` 
+this answers the question, by showing how the countries with the shortest and longest life expectancy in 1952 were Afghanistan (28,801) and Norway (72,670), whereas in 2007 Swaziland (39.613) has the shortest and Japan (82.603) the longest life expectancy. As shown above, the function can find these values to any given year in the df, not just the earliest and latest.  
+
+
+okay this is alright, but it isn't moving - lets instead try to make a animated ggplot, that show us the countries holding the highest and lowest life expectancy for each year. 
+
+
+### Animated mins and maxs.
+
+```{r, warning=FALSE}
+#### lets first find the country with the shortest and longest life expectancy and those values like above:
+df_anim <- gapminder %>% 
+    group_by(year) %>% 
+    summarise(min_exp = min(lifeExp),
+              max_exp = max(lifeExp)) 
+
+gapminder$country <- as.character(gapminder$country)
+
+for (i in 1:12) {
+  df_anim$max_country[i] <- gapminder$country[which(gapminder$lifeExp == df_anim$max_exp[i])]
+  df_anim$min_country[i] <- gapminder$country[which(gapminder$lifeExp == df_anim$min_exp[i])]
+}
+
+
+#### selecting the columns i wanna work with and saving it in df 
+df_country <- df_anim %>% 
+  select(year, max_country, min_country)
+
+df_value <- df_anim %>% 
+  select(year, max_exp, min_exp)
+
+##### now getting them into long format 
+values <- df_value %>%
+  pivot_longer(cols = !year) %>% 
+  select(year, value) %>% 
+  rename(life_exp = value)
+
+countries <- df_country %>%
+  pivot_longer(cols = !year) %>% 
+  select(year, value) %>%  
+  rename(country = value,
+         extra_year = year)
+
+
+data_combined <- cbind(countries, values) %>% 
+  select(year, country, life_exp)
+
+### now we we have data that can be worked with - could this have been done smarter, probably .. :D 
+## but as we can see we have the min and max life expectancy for each year, and the country it belongs to. 
+head(data_combined)
+```
+
+### Plot Time 
+```{r}
+## lets first make a regular plot
+
+ggplot(data_combined, aes(x = year, y = life_exp, col = country)) + 
+    geom_point( size = 3) +
+    labs(subtitle = "The shortest and longest life expectancy throughout the years", x = "Country", y = "Life Expentancy (Years)") +
+    #gtitle(paste0('Year:')) + 
+    theme_bw()
+```
+The colour coding kind of scams you, since Rwanda and Norway look very similiar. Lets try to label the points instead:
+```{r}
+ggplot(data_combined, aes(x = year, y = life_exp, label = country)) + 
+    geom_point( size = 3) +
+    geom_text(hjust=0, vjust=0) +
+    labs(subtitle = "The shortest and longest life expectancy throughout the years", x = "Country", y = "Life Expentancy (Years)") +
+    #gtitle(paste0('Year:')) + 
+    theme_bw()
+```
+The above plots are not to bad, but it could be fun if they moved. 
+
+
+```{r}
+# lets make it move 
+ggplot(data_combined, aes(year, life_exp, colour = country)) +
+  geom_point() +
+  labs(title = "Year: {closest_state}", subtitle = "The shortest and longest life expectancy throughout the years", x = "Country", y = "Life expectancy of the citisens") + # the {} adds the year transition as the title 
+  transition_states(year, transition_length = 3, state_length = 3) +
+  enter_fade() +
+  exit_fade()
+
+
+```
+Okay this is cool, but doesn't give us much we didn't already have in the not-moving plot above.
+
+another way it could be visualised is by having countries on the x axis:
+```{r}
+ggplot(data_combined, aes(country, life_exp)) +
+  geom_point() +
+  labs(title = "Year: {closest_state}", subtitle = "The shortest and longest life expectancy throughout the years", x = "Country", y = "Life expectancy of the citisens") + # the {} adds the year transition as the title 
+  transition_states(year, transition_length = 3, state_length = 3) +
+  enter_fade() +
+  exit_fade()
+```
+not sure this is the best way to use the animation either, but it is a cool and different way to visualise which countries had the shortest and longest life expectancy at the different points in time. 
+
+
+
+
+
+
+
+
+
