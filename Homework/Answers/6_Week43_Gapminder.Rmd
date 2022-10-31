@@ -1,0 +1,117 @@
+---
+title: '6:W43: Practicing functions with Gapminder'
+date: "10/30/2022"
+output:
+  html_document: default
+  pdf_document: default
+--- 
+
+*Use the gapminder dataset from Week 43 to produce solutions to the three tasks below. Post the .R script or .Rmd and .html in your au##### github repository and link it here:* https://github.com/Digital-Methods-HASS/CultDat_LauraWPaaby 
+*OBS: the assignment can be found under* **Homework/Answers.**
+
+
+##### Loading in libraries and data:
+```{r, warning=FALSE}
+library(gapminder)
+library(tidyverse)
+library(dplyr)
+library(knitr)
+```
+
+```{r}
+data <- as.data.frame(gapminder)
+head(data)
+```
+
+
+**1. Define a defensive function that calculates the Gross Domestic Product (GDP) of a nation from the data available in the gapminder dataset. You can use the population and GDPpercapita columns for it. Using that function, calculate the GDP of Denmark in the following years: 1967, 1977, 1987, 1997, 2007, and 2017.**
+
+The GDP of a nation is found by multiplying the GDP per capita with the size of the population.
+
+```{r}
+cal_GDP <- function(df, chosen_country, chosen_year){
+  #### MAKING IT DEFENSIVE, BY TAKING CARE OF THE YEARS W NO DATA
+  stopifnot(is.numeric(chosen_year))
+  stopifnot(is.character(chosen_country))
+  #### ISOLATE THE YEAR AND COUNTRY OF CHOICE 
+  df <- df[df$year %in% chosen_year, ]
+  df <- df[df$country %in% chosen_country, ]
+     
+  GDP <- df$pop * df$gdpPercap
+  return(GDP)
+}
+
+
+##### RUNNING THE FUNCTION FOR ALL YEARS:
+years = c(1967, 1977, 1987, 1997, 2007, 2017)
+
+for (i in years){
+  if(i %in% data$year){
+    gdp <- cal_GDP(data, "Denmark", i)
+    print(paste0("The GDP in Denmark was ", gdp, " in ", i, "!"))
+  } else {
+    print(paste0("There were no data from year ", i))
+  }
+}
+```
+
+
+
+**2. Write a script that loops over each country in the gapminder dataset, tests whether the country starts with a ‘B’ , and prints out whether the life expectancy is smaller than 50, between 50 and 70, or greater than 70. (Hint: remember the grepl function, and review the Control Flow tutorial)**
+
+
+```{r}
+
+### LOOP TIME BABY
+b_df <- data.frame()
+
+## LETS FIRST FIND THE COUNTRIES STARTING W A B:
+for(i in unique(data$country)) {
+  if(grepl("^B", i)){
+    b_df <- rbind(b_df, data[which(data$country %in% i),]) }
+  
+}
+
+
+### NOW I EVALUATE THE LIFEEXP FOR EACH COUNTRY TO ALL TIMES IN ANOTHER LOOP:
+for(ii in unique(b_df$country)){
+  
+  country_dat <- b_df %>% 
+    filter(country == ii)
+  
+  #### Finding the life expectancy mean over all times
+  le_mean <- mean(country_dat$lifeExp)
+    
+  #### printing them for each country
+   if (le_mean > 70) { ### finding the lifeexps larger than 70
+      print(paste0("In ", ii, " they have a mean life expetancy above 70 years from 1952 to 2007! It is: ", round(le_mean, digits = 2), " years!"))
+    } else {
+      if (le_mean < 50) { ### finding the lifeexps smaller than 50
+       print(paste0("In ", ii, " they have a mean life expetancy below 50 years from 1952 to 2007! It is: ", round(le_mean, digits = 2), " years!"))
+     } else {
+      print(paste0("In ", ii, " they have a mean life expetancy between 50 and 70 years from 1952 to 2007! It is: ", round(le_mean, digits = 2), " years!")) ### finding the lifeexps in between
+    }
+  }
+}
+
+
+
+```
+This prints out the mean life expectancy of the countries across all measured times. The latter loop can likewise be applied, if one wish to find the life expectansies for all countries.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
