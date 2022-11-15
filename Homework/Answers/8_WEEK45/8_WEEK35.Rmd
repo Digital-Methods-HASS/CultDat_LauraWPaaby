@@ -3,12 +3,6 @@ title: "SENTIMENT ANALYSIS, TEXT MINING, VISUALISATION"
 author: "LAURA PAAABY"
 date: "11/14/2022"
 output: html_document
-toc: yes
-    df_print: paged
-  blogdown::html_page:
-    toc: yes
-  pdf_document:
-    toc: yes
 ---
 
 ##### Installing Packages:
@@ -17,7 +11,8 @@ knitr::opts_chunk$set(echo = TRUE,
                       warning = FALSE,
                       message = FALSE)
 
-pacman::p_load(pdftools, tidytext, textdata, ggwordcloud, tidyverse, here, devtools, readr)
+pacman::p_load(pdftools, tidytext, textdata, ggwordcloud, tidyverse, here, devtools, readr,sew)
+library(pdftools)
 ```
 
 
@@ -376,9 +371,9 @@ got_top100 <- got_no_numeric %>%
 
 #plot 
 ggplot(data = got_top100, aes(label = word, size = n)) +
-  geom_text_wordcloud_area(aes(color = n), shape = "diamond") +
+  geom_text_wordcloud_area(aes(color = n), shape = "cloud") +
   scale_size_area(max_size = 12) +
-  scale_color_gradientn(colors = c("darkgreen","blue","red")) +
+  scale_color_gradientn(colors = c("pink","blue","red")) +
   theme_minimal()
 ```
 
@@ -399,7 +394,6 @@ got_nrc <- got_stopwords %>%
 #what did we just exclude?
 got_exclude <- got_stopwords %>% 
   anti_join(get_sentiments("nrc"))
-View(got_exclude)
 
 
 # THE MOST EXCLUDED!!!!
